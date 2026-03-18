@@ -1,0 +1,26 @@
+{
+  "QUICK_SCENES": {
+    "contextMenu": {
+      "quickScene": "Quick Scene",
+      "showPlayers": "Show to Players"
+    },
+    "notifications": {
+      "sceneCreated": "Scene created: {name}",
+      "sceneCreateError": "Failed to create scene",
+      "showError": "Failed to show image to players",
+      "defaultsSaved": "Quick Scene defaults saved"
+    },
+    "settings": {
+      "debugMode": {
+        "label": "Debug Mode",
+        "hint": "Enable debug logging in the browser console"
+      },
+      "sceneDefaults": {
+        "label": "Scene Defaults",
+        "button": "Configure Defaults",
+        "hint": "Set default properties applied to every Quick Scene",
+        "configTitle": "Quick Scene Defaults"
+      }
+    }
+  }
+}

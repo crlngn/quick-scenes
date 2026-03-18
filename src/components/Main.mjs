@@ -1,0 +1,30 @@
+import { HOOKS_CORE } from "../constants/Hooks.mjs";
+import { MODULE_ID } from "../constants/General.mjs";
+import { LogUtil } from "./LogUtil.mjs";
+import { SettingsUtil } from "./SettingsUtil.mjs";
+import { ContextMenus } from "./ContextMenus.mjs";
+
+/**
+ * Main class handling core module initialization and setup
+ * Manages module lifecycle, hooks, and core functionality
+ */
+export class Main {
+  /**
+   * Initialize the module and set up core hooks
+   * @static
+   */
+  static init() {
+    Hooks.once(HOOKS_CORE.INIT, () => {
+      LogUtil.log("Initiating module...", [], true);
+
+      SettingsUtil.registerSettings();
+    });
+
+    Hooks.once(HOOKS_CORE.READY, () => {
+      LogUtil.log("Module ready.", []);
+
+      Hooks.on(HOOKS_CORE.RENDER_FILE_PICKER, ContextMenus.attachToFilePicker);
+      Hooks.on(HOOKS_CORE.RENDER_JOURNAL_SHEET, ContextMenus.attachToJournal);
+    });
+  }
+}

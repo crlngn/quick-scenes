@@ -1,0 +1,37 @@
+import { readFileSync, writeFileSync } from 'fs';
+
+export default function vitePluginVersion() {
+  return {
+    name: 'vite-plugin-version',
+    configResolved(config) {
+      const isWatchMode = process.env.WATCH_MODE === 'true';
+
+      if (isWatchMode) {
+        console.log("Skipping version updates in watch mode...");
+        return;
+      }
+
+      console.log("Updating version files for build...");
+
+      const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
+      const version = packageJson.version;
+
+      // Update module.json
+      const moduleJsonPath = './src/module.json';
+      if (moduleJsonPath) {
+        const moduleJson = JSON.parse(readFileSync(moduleJsonPath, 'utf-8'));
+
+        moduleJson.version = version;
+
+        const versionTag = `v${version}`;
+        const baseUrl = 'https://github.com/crlngn/quick-scenes/releases';
+
+        moduleJson.manifest = `${baseUrl}/latest/download/module.json`;
+        moduleJson.download = `${baseUrl}/download/${versionTag}/module.zip`;
+
+        writeFileSync(moduleJsonPath, JSON.stringify(moduleJson, null, 2) + '\n');
+        console.log(`Updated src/module.json to version ${version} with specific version URLs`);
+      }
+    }
+  };
+}
