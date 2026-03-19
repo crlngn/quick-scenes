@@ -94,18 +94,25 @@ export class SceneActions {
         targetFolderId = folder.id;
       }
 
-      await SceneActions.#executeBulkCreation(mediaFiles, targetFolderId);
+      let targetPackId = dialogResult.packId;
+      if (dialogResult.newPackLabel) {
+        const slug = dialogResult.newPackLabel.slugify({ strict: true });
+        const pack = await CompendiumCollection.createCompendium({ name: slug, label: dialogResult.newPackLabel, type: "Scene" });
+        targetPackId = pack.collection;
+      }
+
+      await SceneActions.#executeBulkCreation(mediaFiles, targetFolderId, targetPackId);
     } catch (err) {
       LogUtil.error("QUICK_SCENES.notifications.sceneCreateError", { error: err });
     }
   }
 
   /**
-   * Show the bulk scene creation dialog with image count, folder selection,
-   * and optional new folder name input.
+   * Show the bulk scene creation dialog with image count, destination toggle
+   * (world vs compendium), folder/pack selection, and new folder/pack input.
    * @param {number} count - Number of media files found
    * @param {string} folderName - Name of the source folder
-   * @returns {Promise<{folderId: string|null, newFolderName: string|null}|null>}
+   * @returns {Promise<{folderId: string|null, newFolderName: string|null, packId: string|null, newPackLabel: string|null}|null>}
    */
   static async #showBulkDialog(count, folderName) {
     const i18n = (key, data) => data ? game.i18n.format(key, data) : game.i18n.localize(key);
@@ -113,10 +120,21 @@ export class SceneActions {
     const folderOptions = sceneFolders.map(f =>
       `<option value="${f.id}">${"—".repeat(f.depth)} ${f.name}</option>`
     ).join("");
+    const scenePacks = game.packs.filter(p => p.documentName === "Scene");
+    const packOptions = scenePacks.map(p =>
+      `<option value="${p.collection}">${p.title}</option>`
+    ).join("");
 
     const content = `
       <p>${i18n("QUICK_SCENES.bulk.dialogContent", { count, folder: folderName })}</p>
       <div class="form-group">
+        <label>${i18n("QUICK_SCENES.bulk.destination")}</label>
+        <select name="destination">
+          <option value="world">${i18n("QUICK_SCENES.bulk.destinationWorld")}</option>
+          <option value="compendium">${i18n("QUICK_SCENES.bulk.destinationCompendium")}</option>
+        </select>
+      </div>
+      <div class="form-group" data-qsc-world-options>
         <label>${i18n("QUICK_SCENES.bulk.selectFolder")}</label>
         <select name="folderId">
           <option value="">${i18n("QUICK_SCENES.bulk.folderNone")}</option>
@@ -127,6 +145,17 @@ export class SceneActions {
       <div class="form-group" data-qsc-new-folder style="display:none">
         <label>${i18n("QUICK_SCENES.bulk.newFolderName")}</label>
         <input type="text" name="newFolderName" value="${folderName}">
+      </div>
+      <div class="form-group" data-qsc-compendium-options style="display:none">
+        <label>${i18n("QUICK_SCENES.bulk.selectPack")}</label>
+        <select name="packId">
+          ${packOptions}
+          <option value="__new__">${i18n("QUICK_SCENES.bulk.packNew")}</option>
+        </select>
+      </div>
+      <div class="form-group" data-qsc-new-pack style="display:none">
+        <label>${i18n("QUICK_SCENES.bulk.newPackLabel")}</label>
+        <input type="text" name="newPackLabel" value="${folderName}">
       </div>`;
 
     return foundry.applications.api.DialogV2.wait({
@@ -134,11 +163,25 @@ export class SceneActions {
       content,
       render: (event, dialog) => {
         const html = dialog.element;
-        const select = html.querySelector("[name=folderId]");
+        const destination = html.querySelector("[name=destination]");
+        const worldOptions = html.querySelector("[data-qsc-world-options]");
         const newFolderGroup = html.querySelector("[data-qsc-new-folder]");
-        select?.addEventListener("change", () => {
-          newFolderGroup.style.display = select.value === "__new__" ? "" : "none";
-        });
+        const compendiumOptions = html.querySelector("[data-qsc-compendium-options]");
+        const newPackGroup = html.querySelector("[data-qsc-new-pack]");
+        const folderSelect = html.querySelector("[name=folderId]");
+        const packSelect = html.querySelector("[name=packId]");
+
+        const updateVisibility = () => {
+          const isCompendium = destination.value === "compendium";
+          worldOptions.style.display = isCompendium ? "none" : "";
+          newFolderGroup.style.display = (!isCompendium && folderSelect.value === "__new__") ? "" : "none";
+          compendiumOptions.style.display = isCompendium ? "" : "none";
+          newPackGroup.style.display = (isCompendium && packSelect.value === "__new__") ? "" : "none";
+        };
+
+        destination?.addEventListener("change", updateVisibility);
+        folderSelect?.addEventListener("change", updateVisibility);
+        packSelect?.addEventListener("change", updateVisibility);
       },
       buttons: [
         {
@@ -147,11 +190,22 @@ export class SceneActions {
           icon: "fa-solid fa-images",
           default: true,
           callback: (event, button) => {
+            const dest = button.form.elements.destination?.value;
             const folderId = button.form.elements.folderId?.value;
             const newFolderName = button.form.elements.newFolderName?.value?.trim();
+            const packId = button.form.elements.packId?.value;
+            const newPackLabel = button.form.elements.newPackLabel?.value?.trim();
+            if (dest === "compendium") {
+              return {
+                folderId: null, newFolderName: null,
+                packId: (packId && packId !== "__new__") ? packId : null,
+                newPackLabel: packId === "__new__" ? (newPackLabel || folderName) : null
+              };
+            }
             return {
               folderId: (folderId && folderId !== "__new__") ? folderId : null,
-              newFolderName: folderId === "__new__" ? (newFolderName || folderName) : null
+              newFolderName: folderId === "__new__" ? (newFolderName || folderName) : null,
+              packId: null, newPackLabel: null
             };
           }
         },
@@ -170,8 +224,9 @@ export class SceneActions {
    * showing a progress dialog with a cancel button.
    * @param {string[]} mediaFiles - Array of media file paths
    * @param {string|null} folderId - Target scene folder ID, or null for root
+   * @param {string|null} packId - Target compendium pack collection ID, or null for world
    */
-  static async #executeBulkCreation(mediaFiles, folderId) {
+  static async #executeBulkCreation(mediaFiles, folderId, packId = null) {
     const i18n = (key, data) => data ? game.i18n.format(key, data) : game.i18n.localize(key);
     const total = mediaFiles.length;
     const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
@@ -201,15 +256,17 @@ export class SceneActions {
       try {
         const name = SceneActions.#getFileNameFromPath(mediaPath);
         const { width, height } = await SceneActions.#getMediaDimensions(mediaPath);
-        const scene = await Scene.implementation.create(foundry.utils.mergeObject({
+        const sceneData = foundry.utils.mergeObject({
           ...defaults,
           name,
           thumb: "",
           background: { src: mediaPath },
           width,
           height,
-          folder: folderId
-        }, {}));
+          folder: packId ? null : folderId
+        }, {});
+        const createOptions = packId ? { pack: packId } : {};
+        const scene = await Scene.implementation.create(sceneData, createOptions);
         createdScenes.push(scene);
       } catch (err) {
         failed++;
@@ -220,7 +277,7 @@ export class SceneActions {
         ?.replaceChildren(document.createTextNode(message));
     }
 
-    if (createdScenes.length && !cancelled) {
+    if (createdScenes.length && !cancelled && !packId) {
       await SceneActions.#generateThumbnails(createdScenes, progressDialog, cancelled);
     }
 

@@ -19,7 +19,13 @@
       "thumbnails": "Generating thumbnails {current} of {total}…",
       "complete": "Created {count} scenes.",
       "cancelled": "Cancelled. Created {count} of {total} scenes.",
-      "noImages": "No images found in this folder."
+      "noImages": "No images found in this folder.",
+      "destination": "Destination",
+      "destinationWorld": "World",
+      "destinationCompendium": "Compendium",
+      "selectPack": "Compendium Pack",
+      "packNew": "— Create New Pack —",
+      "newPackLabel": "New Pack Name"
     },
     "notifications": {
       "sceneCreated": "Scene created: {name}",
