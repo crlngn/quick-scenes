@@ -1,4 +1,5 @@
 import { SceneActions } from "./SceneActions.mjs";
+import { MediaUtil } from "./MediaUtil.mjs";
 import { LogUtil } from "./LogUtil.mjs";
 
 /**
@@ -7,7 +8,7 @@ import { LogUtil } from "./LogUtil.mjs";
 export class ContextMenus {
 
   /**
-   * Attach context menu to FilePicker file entries
+   * Attach context menus to FilePicker file and folder entries
    * Called from renderFilePicker hook
    * @param {object} app - The FilePicker application instance
    * @param {HTMLElement} element - The rendered HTML element
@@ -17,6 +18,7 @@ export class ContextMenus {
     const container = element instanceof HTMLElement ? element : element?.[0];
     if (!container) return;
     new ContextMenu(container, "li[data-file]", ContextMenus.#getMenuItems(), { fixed: true, jQuery: false });
+    new ContextMenu(container, "li[data-directory]", ContextMenus.#getFolderMenuItems(app), { fixed: true, jQuery: false });
     LogUtil.log("Context menu attached to FilePicker");
   }
 
@@ -57,20 +59,35 @@ export class ContextMenus {
       {
         name: "QUICK_SCENES.contextMenu.quickScene",
         icon: '<i class="fas fa-map"></i>',
-        condition: (target) => ContextMenus.#isMediaFile(ContextMenus.#getMediaPath(target)),
+        condition: (target) => MediaUtil.isMediaFile(ContextMenus.#getMediaPath(target)),
         callback: (target) => SceneActions.createQuickScene(ContextMenus.#getMediaPath(target))
       },
       {
         name: "QUICK_SCENES.contextMenu.showPlayers",
         icon: '<i class="fas fa-eye"></i>',
-        condition: (target) => ContextMenus.#isMediaFile(ContextMenus.#getMediaPath(target)),
+        condition: (target) => MediaUtil.isMediaFile(ContextMenus.#getMediaPath(target)),
         callback: (target) => SceneActions.showToPlayers(ContextMenus.#getMediaPath(target))
       },
       {
         name: "QUICK_SCENES.contextMenu.sendToChat",
         icon: '<i class="fas fa-comment"></i>',
-        condition: (target) => ContextMenus.#isMediaFile(ContextMenus.#getMediaPath(target)),
+        condition: (target) => MediaUtil.isMediaFile(ContextMenus.#getMediaPath(target)),
         callback: (target) => SceneActions.sendToChat(ContextMenus.#getMediaPath(target))
+      }
+    ];
+  }
+
+  /**
+   * Build context menu items for folder entries (bulk operations)
+   * @param {object} app - The FilePicker application instance
+   * @returns {Array<object>} Array of ContextMenuEntry objects
+   */
+  static #getFolderMenuItems(app) {
+    return [
+      {
+        name: "QUICK_SCENES.contextMenu.bulkQuickScenes",
+        icon: '<i class="fas fa-images"></i>',
+        callback: (target) => SceneActions.createBulkQuickScenes(target?.dataset?.path, app.activeSource)
       }
     ];
   }
@@ -85,15 +102,4 @@ export class ContextMenus {
     return target?.dataset?.path ?? target?.getAttribute?.("src") ?? null;
   }
 
-  /**
-   * Check whether a file path points to an image or video based on its extension
-   * @param {string} path - The file path to check
-   * @returns {boolean} True if the file is an image or video
-   */
-  static #isMediaFile(path) {
-    if (!path) return false;
-    const ext = path.split(".")?.pop()?.split("?")[0]?.toLowerCase();
-    return ext in (CONST.IMAGE_FILE_EXTENSIONS ?? {})
-      || ext in (CONST.VIDEO_FILE_EXTENSIONS ?? {});
-  }
 }

@@ -1,13 +1,7 @@
 import { MODULE_ID } from "../constants/General.mjs";
 import { SETTINGS_KEYS } from "../constants/Settings.mjs";
+import { MediaUtil } from "./MediaUtil.mjs";
 import { LogUtil } from "./LogUtil.mjs";
-
-const HARDCODED_DEFAULTS = {
-  backgroundColor: "#000000",
-  tokenVision: false,
-  "fog.exploration": false,
-  initial: { scale: 1 },
-};
 
 /**
  * Handles scene creation and image sharing actions
@@ -24,7 +18,7 @@ export class SceneActions {
       const name = SceneActions.#getFileNameFromPath(mediaPath);
       const { width, height } = await SceneActions.#getMediaDimensions(mediaPath);
       const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
-      const defaults = foundry.utils.isEmpty(savedDefaults) ? HARDCODED_DEFAULTS : savedDefaults;
+      const defaults = foundry.utils.isEmpty(savedDefaults) ? {} : savedDefaults;
 
       const scene = await Scene.implementation.createDialog(foundry.utils.mergeObject({
         ...defaults,
@@ -72,6 +66,199 @@ export class SceneActions {
     } catch (err) {
       LogUtil.error("QUICK_SCENES.notifications.chatError", { error: err });
     }
+  }
+
+  /**
+   * Browse a folder for media files, show a confirmation dialog with folder
+   * selection, then create scenes in bulk with progress and cancel support.
+   * @param {string} folderPath - The path to the folder to browse
+   * @param {string} source - The FilePicker source ("data", "public", "s3")
+   */
+  static async createBulkQuickScenes(folderPath, source) {
+    if (!game.user?.isGM) return;
+    try {
+      const result = await FilePicker.browse(source, folderPath);
+      const mediaFiles = result.files.filter(f => MediaUtil.isMediaFile(f));
+      if (!mediaFiles.length) {
+        ui.notifications.warn(game.i18n.localize("QUICK_SCENES.bulk.noImages"));
+        return;
+      }
+
+      const folderName = folderPath.split("/").filter(Boolean).pop() ?? "Untitled";
+      const dialogResult = await SceneActions.#showBulkDialog(mediaFiles.length, folderName);
+      if (!dialogResult) return;
+
+      let targetFolderId = dialogResult.folderId;
+      if (dialogResult.newFolderName) {
+        const folder = await Folder.implementation.create({ name: dialogResult.newFolderName, type: "Scene" });
+        targetFolderId = folder.id;
+      }
+
+      await SceneActions.#executeBulkCreation(mediaFiles, targetFolderId);
+    } catch (err) {
+      LogUtil.error("QUICK_SCENES.notifications.sceneCreateError", { error: err });
+    }
+  }
+
+  /**
+   * Show the bulk scene creation dialog with image count, folder selection,
+   * and optional new folder name input.
+   * @param {number} count - Number of media files found
+   * @param {string} folderName - Name of the source folder
+   * @returns {Promise<{folderId: string|null, newFolderName: string|null}|null>}
+   */
+  static async #showBulkDialog(count, folderName) {
+    const i18n = (key, data) => data ? game.i18n.format(key, data) : game.i18n.localize(key);
+    const sceneFolders = game.folders.filter(f => f.type === "Scene");
+    const folderOptions = sceneFolders.map(f =>
+      `<option value="${f.id}">${"—".repeat(f.depth)} ${f.name}</option>`
+    ).join("");
+
+    const content = `
+      <p>${i18n("QUICK_SCENES.bulk.dialogContent", { count, folder: folderName })}</p>
+      <div class="form-group">
+        <label>${i18n("QUICK_SCENES.bulk.selectFolder")}</label>
+        <select name="folderId">
+          <option value="">${i18n("QUICK_SCENES.bulk.folderNone")}</option>
+          ${folderOptions}
+          <option value="__new__">${i18n("QUICK_SCENES.bulk.folderNew")}</option>
+        </select>
+      </div>
+      <div class="form-group" data-qsc-new-folder style="display:none">
+        <label>${i18n("QUICK_SCENES.bulk.newFolderName")}</label>
+        <input type="text" name="newFolderName" value="${folderName}">
+      </div>`;
+
+    return foundry.applications.api.DialogV2.wait({
+      window: { title: i18n("QUICK_SCENES.bulk.dialogTitle") },
+      content,
+      render: (event, dialog) => {
+        const html = dialog.element;
+        const select = html.querySelector("[name=folderId]");
+        const newFolderGroup = html.querySelector("[data-qsc-new-folder]");
+        select?.addEventListener("change", () => {
+          newFolderGroup.style.display = select.value === "__new__" ? "" : "none";
+        });
+      },
+      buttons: [
+        {
+          action: "create",
+          label: i18n("QUICK_SCENES.bulk.createScenes"),
+          icon: "fa-solid fa-images",
+          default: true,
+          callback: (event, button) => {
+            const folderId = button.form.elements.folderId?.value;
+            const newFolderName = button.form.elements.newFolderName?.value?.trim();
+            return {
+              folderId: (folderId && folderId !== "__new__") ? folderId : null,
+              newFolderName: folderId === "__new__" ? (newFolderName || folderName) : null
+            };
+          }
+        },
+        {
+          action: "cancel",
+          label: i18n("QUICK_SCENES.bulk.cancel"),
+          icon: "fa-solid fa-xmark"
+        }
+      ],
+      rejectClose: false
+    });
+  }
+
+  /**
+   * Create scenes sequentially from an array of media paths,
+   * showing a progress dialog with a cancel button.
+   * @param {string[]} mediaFiles - Array of media file paths
+   * @param {string|null} folderId - Target scene folder ID, or null for root
+   */
+  static async #executeBulkCreation(mediaFiles, folderId) {
+    const i18n = (key, data) => data ? game.i18n.format(key, data) : game.i18n.localize(key);
+    const total = mediaFiles.length;
+    const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
+    const defaults = foundry.utils.isEmpty(savedDefaults) ? {} : savedDefaults;
+    const createdScenes = [];
+    let failed = 0;
+    let cancelled = false;
+
+    const progressDialog = new foundry.applications.api.DialogV2({
+      window: { title: i18n("QUICK_SCENES.bulk.dialogTitle"), minimizable: false },
+      content: `<p class="qsc-bulk-progress">${i18n("QUICK_SCENES.bulk.progress", { current: 0, total })}</p>`,
+      buttons: [{
+        action: "cancel",
+        label: i18n("QUICK_SCENES.bulk.cancel"),
+        icon: "fa-solid fa-xmark",
+        callback: () => { cancelled = true; }
+      }],
+      modal: true
+    });
+    progressDialog.render(true);
+
+    const origNotify = ui.notifications.notify.bind(ui.notifications);
+    ui.notifications.notify = () => ({ remove() {}, update() {} });
+
+    for (const mediaPath of mediaFiles) {
+      if (cancelled) break;
+      try {
+        const name = SceneActions.#getFileNameFromPath(mediaPath);
+        const { width, height } = await SceneActions.#getMediaDimensions(mediaPath);
+        const scene = await Scene.implementation.create(foundry.utils.mergeObject({
+          ...defaults,
+          name,
+          thumb: "",
+          background: { src: mediaPath },
+          width,
+          height,
+          folder: folderId
+        }, {}));
+        createdScenes.push(scene);
+      } catch (err) {
+        failed++;
+        LogUtil.log("Failed to create scene from " + mediaPath, [err]);
+      }
+      const message = i18n("QUICK_SCENES.bulk.progress", { current: createdScenes.length + failed, total });
+      progressDialog.element?.querySelector(".qsc-bulk-progress")
+        ?.replaceChildren(document.createTextNode(message));
+    }
+
+    if (createdScenes.length && !cancelled) {
+      await SceneActions.#generateThumbnails(createdScenes, progressDialog, cancelled);
+    }
+
+    ui.notifications.notify = origNotify;
+    await progressDialog.close();
+    if (cancelled) {
+      ui.notifications.info(i18n("QUICK_SCENES.bulk.cancelled", { count: createdScenes.length, total }));
+    } else {
+      ui.notifications.info(i18n("QUICK_SCENES.bulk.complete", { count: createdScenes.length }));
+    }
+    LogUtil.log("Bulk scene creation finished", [createdScenes.length, total, failed]);
+  }
+
+  /**
+   * Generate thumbnails for created scenes sequentially.
+   * Expects ui.notifications.notify to be intercepted by the caller.
+   * @param {Scene[]} scenes - Array of created Scene documents
+   * @param {object} progressDialog - The active progress dialog
+   * @param {boolean} cancelled - Reference checked each iteration
+   */
+  static async #generateThumbnails(scenes, progressDialog, cancelled) {
+    const i18n = (key, data) => data ? game.i18n.format(key, data) : game.i18n.localize(key);
+    const total = scenes.length;
+
+    for (let i = 0; i < scenes.length; i++) {
+      if (cancelled) break;
+      const scene = scenes[i];
+      try {
+        const thumbData = await scene.createThumbnail({ img: scene.background.src });
+        await scene.update({ thumb: thumbData.thumb }, { diff: false });
+      } catch (err) {
+        LogUtil.log("Failed to generate thumbnail for " + scene.name, [err]);
+      }
+      const message = i18n("QUICK_SCENES.bulk.thumbnails", { current: i + 1, total });
+      progressDialog.element?.querySelector(".qsc-bulk-progress")
+        ?.replaceChildren(document.createTextNode(message));
+    }
+
   }
 
   /**
