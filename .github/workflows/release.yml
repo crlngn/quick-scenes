@@ -1,0 +1,73 @@
+name: Release to FoundryVTT
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Repository Name and Version
+        run: |
+          REPO_NAME=$(basename $GITHUB_REPOSITORY)
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Get Compatibility Versions
+        id: get_compatibility
+        run: |
+          MIN_VERSION=$(jq -r .compatibility.minimum src/module.json)
+          VERIFIED_VERSION=$(jq -r .compatibility.verified src/module.json)
+          MAX_VERSION=$(jq -r .compatibility.maximum src/module.json)
+          echo "MIN_VERSION=$MIN_VERSION" >> $GITHUB_ENV
+          echo "VERIFIED_VERSION=$VERIFIED_VERSION" >> $GITHUB_ENV
+          echo "MAX_VERSION=$MAX_VERSION" >> $GITHUB_ENV
+
+      - name: Prepare Release Artifacts
+        run: |
+          mv dist "$REPO_NAME"
+          zip -r module.zip "$REPO_NAME"
+          mv "$REPO_NAME" dist
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            module.zip
+            dist/module.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Latest Release to FoundryVTT
+        env:
+          FOUNDRY_PACKAGE_API_KEY: ${{ secrets.FOUNDRY_PACKAGE_API_KEY }}
+        run: |
+          echo "Publishing latest release ($VERSION) to FoundryVTT..."
+          API_RESPONSE=$(curl -s -X POST "https://foundryvtt.com/_api/packages/release_version/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: $FOUNDRY_PACKAGE_API_KEY" \
+            -d '{
+              "id": "'"$REPO_NAME"'",
+              "release": {
+                "version": "'"$VERSION"'",
+                "manifest": "https://github.com/${{ github.repository }}/releases/latest/download/module.json",
+                "notes": "https://github.com/${{ github.repository }}/releases/tag/v'"$VERSION"'",
+                "compatibility": {
+                  "minimum": "${{env.MIN_VERSION}}",
+                  "verified": "${{env.VERIFIED_VERSION}}",
+                  "maximum": "${{env.MAX_VERSION}}"
+                }
+              }
+            }')
+          echo "Latest Release API Response: $API_RESPONSE"

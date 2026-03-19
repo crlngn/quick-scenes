@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/6136b554-d2b0-4521-a27b-81ec5a76e771
 
 ## Usage
 
-Right-click any image or video file to access the context menu with the following options:
+Right-click any image or video file on Tile Explorer, File Picker or Journals to access the following options:
 
 - **Quick Scene** - Creates a scene with that file as background, opens the config sheet, and views it on the GM canvas (without activating for players).
 - **Show to Players** - Displays the image/video to all connected players as a popout. No journal entry needed.
