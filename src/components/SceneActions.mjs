@@ -93,6 +93,31 @@ export class SceneActions {
   }
 
   /**
+   * Apply configured defaults to all newly created scenes when the setting is enabled.
+   * Called from preCreateScene hook.
+   * @param {Scene} document - The scene document being created
+   * @param {object} data - The creation data
+   * @param {object} options - Creation options
+   * @param {string} userId - The creating user's ID
+   */
+  static onPreCreateScene(document, data, options, userId) {
+    if (!game.user?.isGM) return;
+    if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.APPLY_DEFAULTS_ALL)) return;
+    const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
+    if (foundry.utils.isEmpty(savedDefaults)) return;
+    const updates = {};
+    for (const [key, value] of Object.entries(savedDefaults)) {
+      if (!(key in data)) {
+        updates[key] = value;
+      }
+    }
+    if (!foundry.utils.isEmpty(updates)) {
+      document.updateSource(updates);
+      LogUtil.log("Applied defaults to new scene", [data.name]);
+    }
+  }
+
+  /**
    * Extract a clean display name from a file path.
    * Removes extension, replaces underscores and hyphens with spaces.
    * @param {string} path - The full file path or URL

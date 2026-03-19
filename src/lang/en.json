@@ -17,6 +17,10 @@
         "label": "Debug Mode",
         "hint": "Enable debug logging in the browser console"
       },
+      "applyDefaultsAll": {
+        "label": "Use Defaults for All New Scenes",
+        "hint": "Apply the configured scene defaults to all newly created scenes, not just Quick Scenes"
+      },
       "sceneDefaults": {
         "label": "Scene Defaults",
         "button": "Configure Defaults",

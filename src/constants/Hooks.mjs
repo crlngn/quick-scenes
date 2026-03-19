@@ -22,6 +22,9 @@ export const HOOKS_CORE = {
 
   /* Chat */
   RENDER_CHAT_MESSAGE: "renderChatMessage",
+
+  /* Documents */
+  PRE_CREATE_SCENE: "preCreateScene",
 }
 
 /**
