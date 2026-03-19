@@ -55,6 +55,44 @@ export class SceneActions {
   }
 
   /**
+   * Send an image or video to the chat log as a clickable message.
+   * Clicking the image in chat opens an ImagePopout for fullscreen viewing.
+   * @param {string} mediaPath - The URL/path to the image or video file
+   */
+  static async sendToChat(mediaPath) {
+    try {
+      const isVideo = foundry.helpers.media.VideoHelper.hasVideoExtension(mediaPath);
+      const mediaTag = isVideo
+        ? `<video src="${mediaPath}" controls data-qsc-media></video>`
+        : `<img src="${mediaPath}" data-qsc-media>`;
+      await ChatMessage.create({
+        content: `<div class="qsc-chat-image">${mediaTag}</div>`,
+      });
+      LogUtil.log("Sent to chat", [title, mediaPath]);
+    } catch (err) {
+      LogUtil.error("QUICK_SCENES.notifications.chatError", { error: err });
+    }
+  }
+
+  /**
+   * Attach click-to-expand handlers on chat messages containing module images.
+   * Called from renderChatMessage hook.
+   * @param {object} message - The ChatMessage document
+   * @param {HTMLElement} element - The rendered HTML element
+   */
+  static onRenderChatMessage(message, element) {
+    const container = element instanceof HTMLElement ? element : element?.[0];
+    container?.querySelectorAll("[data-qsc-media]")?.forEach(el => {
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        const src = el.getAttribute("src");
+        const title = el.closest(".qsc-chat-image")?.querySelector("strong")?.textContent ?? "";
+        new ImagePopout({ src, window: { title } }).render(true);
+      });
+    });
+  }
+
+  /**
    * Extract a clean display name from a file path.
    * Removes extension, replaces underscores and hyphens with spaces.
    * @param {string} path - The full file path or URL

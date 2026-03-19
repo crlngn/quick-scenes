@@ -3,6 +3,7 @@ import { MODULE_ID } from "../constants/General.mjs";
 import { LogUtil } from "./LogUtil.mjs";
 import { SettingsUtil } from "./SettingsUtil.mjs";
 import { ContextMenus } from "./ContextMenus.mjs";
+import { SceneActions } from "./SceneActions.mjs";
 
 /**
  * Main class handling core module initialization and setup
@@ -25,6 +26,8 @@ export class Main {
 
       Hooks.on(HOOKS_CORE.RENDER_FILE_PICKER, ContextMenus.attachToFilePicker);
       Hooks.on(HOOKS_CORE.RENDER_JOURNAL_SHEET, ContextMenus.attachToJournal);
+      Hooks.on(HOOKS_CORE.RENDER_IMAGE_POPOUT, ContextMenus.attachToImagePopout);
+      Hooks.on(HOOKS_CORE.RENDER_CHAT_MESSAGE, SceneActions.onRenderChatMessage);
     });
   }
 }

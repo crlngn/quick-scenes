@@ -2,13 +2,15 @@
   "QUICK_SCENES": {
     "contextMenu": {
       "quickScene": "Quick Scene",
-      "showPlayers": "Show to Players"
+      "showPlayers": "Show to Players",
+      "sendToChat": "Send to Chat"
     },
     "notifications": {
       "sceneCreated": "Scene created: {name}",
       "sceneCreateError": "Failed to create scene",
       "showError": "Failed to show image to players",
-      "defaultsSaved": "Quick Scene defaults saved"
+      "defaultsSaved": "Quick Scene defaults saved",
+      "chatError": "Failed to send image to chat"
     },
     "settings": {
       "debugMode": {

@@ -9,6 +9,7 @@ Right-click any image or video file to access the context menu with the followin
 
 - **Quick Scene** - Creates a scene with that file as background, opens the config sheet, and views it on the GM canvas (without activating for players).
 - **Show to Players** - Displays the image/video to all connected players as a popout. No journal entry needed.
+- **Send to Chat** - Posts the image as chat message that players can click to expand.
 
 Both options require GM permissions and only appear on image/video files. The context menu will appear in Tile Explorer, File Picker or Journals.
 

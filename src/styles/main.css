@@ -1,2 +1,18 @@
 /* Quick Scenes & Handouts - Main Styles */
-.quick-scenes-placeholder { display: contents; }
+.qsc-chat-image {
+  width: 100%;
+
+  & img,
+  & video {
+    width: 100%;
+    min-height: min-content;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  & p {
+    margin: 0 0 4px;
+  }
+}

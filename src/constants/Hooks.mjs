@@ -16,6 +16,12 @@ export const HOOKS_CORE = {
 
   /* Journal */
   RENDER_JOURNAL_SHEET: "renderJournalEntrySheet",
+
+  /* Image Popout */
+  RENDER_IMAGE_POPOUT: "renderImagePopout",
+
+  /* Chat */
+  RENDER_CHAT_MESSAGE: "renderChatMessage",
 }
 
 /**

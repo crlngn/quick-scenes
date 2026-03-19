@@ -35,6 +35,20 @@ export class ContextMenus {
   }
 
   /**
+   * Attach context menu to ImagePopout media elements
+   * Called from renderImagePopout hook
+   * @param {object} app - The ImagePopout application instance
+   * @param {HTMLElement} element - The rendered HTML element
+   */
+  static attachToImagePopout(app, element) {
+    if (!game.user?.isGM) return;
+    const container = element instanceof HTMLElement ? element : element?.[0];
+    if (!container) return;
+    new ContextMenu(container, "figure img, figure video", ContextMenus.#getMenuItems(), { fixed: true, jQuery: false });
+    LogUtil.log("Context menu attached to ImagePopout");
+  }
+
+  /**
    * Build the shared context menu items for Quick Scene and Show to Players
    * @returns {Array<object>} Array of ContextMenuEntry objects
    */
@@ -51,6 +65,12 @@ export class ContextMenus {
         icon: '<i class="fas fa-eye"></i>',
         condition: (target) => ContextMenus.#isMediaFile(ContextMenus.#getMediaPath(target)),
         callback: (target) => SceneActions.showToPlayers(ContextMenus.#getMediaPath(target))
+      },
+      {
+        name: "QUICK_SCENES.contextMenu.sendToChat",
+        icon: '<i class="fas fa-comment"></i>',
+        condition: (target) => ContextMenus.#isMediaFile(ContextMenus.#getMediaPath(target)),
+        callback: (target) => SceneActions.sendToChat(ContextMenus.#getMediaPath(target))
       }
     ];
   }
