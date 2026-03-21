@@ -24,7 +24,7 @@ export class DefaultSceneConfig extends SceneConfig {
    */
   constructor(options = {}) {
     const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
-    const tempScene = new Scene({ name: "Default", ...savedDefaults });
+    const tempScene = new Scene({ name: "Picked from File Name", ...savedDefaults });
     super({ document: tempScene, ...options });
   }
 
@@ -37,7 +37,7 @@ export class DefaultSceneConfig extends SceneConfig {
    */
   async _processSubmitData(event, form, submitData, options = {}) {
     delete submitData.name;
-    delete submitData.navigation;
+    delete submitData.navName;
     delete submitData._id;
     delete submitData.thumb;
     await game.settings.set(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS, submitData);
