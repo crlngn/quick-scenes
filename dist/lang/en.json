@@ -4,7 +4,13 @@
       "quickScene": "Quick Scene",
       "bulkQuickScenes": "Create Scenes from Images",
       "showPlayers": "Show to Players",
-      "sendToChat": "Send to Chat"
+      "sendToChat": "Send to Chat",
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out"
+    },
+    "zoom": {
+      "clickToZoom": "Click to zoom in",
+      "dblClickToReset": "Double-click to reset"
     },
     "bulk": {
       "dialogTitle": "Bulk Scene Creation",

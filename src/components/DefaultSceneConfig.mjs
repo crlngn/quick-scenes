@@ -7,7 +7,7 @@ import { LogUtil } from "./LogUtil.mjs";
  * instead of creating or updating a real scene document.
  * Opened via the module settings menu button.
  */
-export class DefaultSceneConfig extends SceneConfig {
+export class DefaultSceneConfig extends foundry.applications.sheets.SceneConfig {
 
   static DEFAULT_OPTIONS = {
     window: {
@@ -40,6 +40,9 @@ export class DefaultSceneConfig extends SceneConfig {
     delete submitData.navName;
     delete submitData._id;
     delete submitData.thumb;
+    if (!submitData.initial?.x && !submitData.initial?.y && !submitData.initial?.scale) {
+      delete submitData.initial;
+    }
     await game.settings.set(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS, submitData);
     LogUtil.log("Scene defaults saved", [submitData]);
     ui.notifications?.info(game.i18n.localize("QUICK_SCENES.notifications.defaultsSaved"));

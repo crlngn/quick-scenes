@@ -21,7 +21,7 @@ export const HOOKS_CORE = {
   RENDER_IMAGE_POPOUT: "renderImagePopout",
 
   /* Chat */
-  RENDER_CHAT_MESSAGE: "renderChatMessage",
+  RENDER_CHAT_MESSAGE_HTML: "renderChatMessageHTML",
 
   /* Documents */
   PRE_CREATE_SCENE: "preCreateScene",

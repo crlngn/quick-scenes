@@ -320,18 +320,17 @@ export class SceneActions {
 
   /**
    * Attach click-to-expand handlers on chat messages containing module images.
-   * Called from renderChatMessage hook.
+   * Called from renderChatMessageHTML hook.
    * @param {object} message - The ChatMessage document
-   * @param {HTMLElement} element - The rendered HTML element
+   * @param {HTMLElement} html - The rendered HTML element
    */
-  static onRenderChatMessage(message, element) {
-    const container = element instanceof HTMLElement ? element : element?.[0];
-    container?.querySelectorAll("[data-qsc-media]")?.forEach(el => {
+  static onRenderChatMessage(message, html) {
+    html?.querySelectorAll("[data-qsc-media]")?.forEach(el => {
       el.addEventListener("click", (event) => {
         event.preventDefault();
         const src = el.getAttribute("src");
         const title = el.closest(".qsc-chat-image")?.querySelector("strong")?.textContent ?? "";
-        new ImagePopout({ src, window: { title } }).render(true);
+        new foundry.applications.apps.ImagePopout({ src, window: { title } }).render(true);
       });
     });
   }

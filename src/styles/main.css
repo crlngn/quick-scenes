@@ -1,4 +1,22 @@
 /* Quick Scenes & Handouts - Main Styles */
+.image-popout figure {
+  overflow: hidden;
+
+  & img {
+    transform-origin: center center;
+    cursor: zoom-in;
+    transition: transform 0.15s ease;
+  }
+
+  &.qsc-zoomed img {
+    cursor: grab;
+    transition: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+}
 .qsc-chat-image {
   width: 100%;
 

@@ -1,6 +1,7 @@
 import { SceneActions } from "./SceneActions.mjs";
 import { MediaUtil } from "./MediaUtil.mjs";
 import { LogUtil } from "./LogUtil.mjs";
+import { ImageZoom } from "./ImageZoom.mjs";
 
 /**
  * Manages context menu attachment to FilePicker and Journal sheet elements
@@ -17,8 +18,8 @@ export class ContextMenus {
     if (!game.user?.isGM) return;
     const container = element instanceof HTMLElement ? element : element?.[0];
     if (!container) return;
-    new ContextMenu(container, "li[data-file]", ContextMenus.#getMenuItems(), { fixed: true, jQuery: false });
-    new ContextMenu(container, "li[data-directory]", ContextMenus.#getFolderMenuItems(app), { fixed: true, jQuery: false });
+    new foundry.applications.ux.ContextMenu(container, "li[data-file]", ContextMenus.#getMenuItems(), { fixed: true, jQuery: false });
+    new foundry.applications.ux.ContextMenu(container, "li[data-directory]", ContextMenus.#getFolderMenuItems(app), { fixed: true, jQuery: false });
     LogUtil.log("Context menu attached to FilePicker");
   }
 
@@ -32,7 +33,7 @@ export class ContextMenus {
     if (!game.user?.isGM) return;
     const container = element instanceof HTMLElement ? element : element?.[0];
     if (!container) return;
-    new ContextMenu(container, ".journal-page-content img", ContextMenus.#getMenuItems(), { fixed: true, jQuery: false });
+    new foundry.applications.ux.ContextMenu(container, ".journal-page-content img", ContextMenus.#getMenuItems(), { fixed: true, jQuery: false });
     LogUtil.log("Context menu attached to JournalEntrySheet");
   }
 
@@ -46,7 +47,8 @@ export class ContextMenus {
     if (!game.user?.isGM) return;
     const container = element instanceof HTMLElement ? element : element?.[0];
     if (!container) return;
-    new ContextMenu(container, "figure img, figure video", ContextMenus.#getMenuItems(), { fixed: true, jQuery: false });
+    const items = [...ContextMenus.#getMenuItems(), ...ImageZoom.getMenuItems()];
+    new foundry.applications.ux.ContextMenu(container, "figure img, figure video", items, { fixed: true, jQuery: false });
     LogUtil.log("Context menu attached to ImagePopout");
   }
 
