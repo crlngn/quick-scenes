@@ -87,6 +87,20 @@ export class SettingsUtil {
   }
 
   /**
+   * Retrieves saved scene defaults, stripping v14 embedded-level data so
+   * that Scene._preCreate can auto-migrate top-level fields into levels.
+   * @returns {object}
+   */
+  static getSceneDefaults() {
+    const defaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
+    if ("levels" in Scene.schema.fields) {
+      delete defaults.levels;
+      delete defaults.initialLevel;
+    }
+    return defaults;
+  }
+
+  /**
    * Applies debug mode settings
    * @param {boolean} [value] - Whether to enable debug mode
    */

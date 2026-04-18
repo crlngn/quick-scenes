@@ -2,6 +2,7 @@ import { MODULE_ID } from "../constants/General.mjs";
 import { SETTINGS_KEYS } from "../constants/Settings.mjs";
 import { MediaUtil } from "./MediaUtil.mjs";
 import { LogUtil } from "./LogUtil.mjs";
+import { SettingsUtil } from "./SettingsUtil.mjs";
 
 /**
  * Handles scene creation and image sharing actions
@@ -17,13 +18,13 @@ export class SceneActions {
     try {
       const name = SceneActions.#getFileNameFromPath(mediaPath);
       const { width, height } = await SceneActions.#getMediaDimensions(mediaPath);
-      const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
+      const savedDefaults = SettingsUtil.getSceneDefaults();
       const defaults = foundry.utils.isEmpty(savedDefaults) ? {} : savedDefaults;
 
       const scene = await Scene.implementation.createDialog(foundry.utils.mergeObject({
         ...defaults,
         name,
-        background: { src: mediaPath },
+        ...SceneActions.#buildBackgroundData(mediaPath, defaults),
         width,
         height,
       }, {}));
@@ -229,7 +230,7 @@ export class SceneActions {
   static async #executeBulkCreation(mediaFiles, folderId, packId = null) {
     const i18n = (key, data) => data ? game.i18n.format(key, data) : game.i18n.localize(key);
     const total = mediaFiles.length;
-    const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
+    const savedDefaults = SettingsUtil.getSceneDefaults();
     const defaults = foundry.utils.isEmpty(savedDefaults) ? {} : savedDefaults;
     const createdScenes = [];
     let failed = 0;
@@ -260,7 +261,7 @@ export class SceneActions {
           ...defaults,
           name,
           thumb: "",
-          background: { src: mediaPath },
+          ...SceneActions.#buildBackgroundData(mediaPath, defaults),
           width,
           height,
           folder: packId ? null : folderId
@@ -346,12 +347,25 @@ export class SceneActions {
   static onPreCreateScene(document, data, options, userId) {
     if (!game.user?.isGM) return;
     if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.APPLY_DEFAULTS_ALL)) return;
-    const savedDefaults = game.settings.get(MODULE_ID, SETTINGS_KEYS.SCENE_DEFAULTS) ?? {};
+    const savedDefaults = SettingsUtil.getSceneDefaults();
     if (foundry.utils.isEmpty(savedDefaults)) return;
+    const schemaFields = Scene.schema.fields;
     const updates = {};
     for (const [key, value] of Object.entries(savedDefaults)) {
-      if (!(key in data)) {
+      if ((key in schemaFields) && !(key in data)) {
         updates[key] = value;
+      }
+    }
+    if ("levels" in schemaFields && document.levels.size) {
+      const level = document.firstLevel;
+      if (level) {
+        const levelUpdates = {};
+        if (savedDefaults.backgroundColor) levelUpdates.background = { color: savedDefaults.backgroundColor };
+        if (savedDefaults.background?.tint) {
+          levelUpdates.background ??= {};
+          levelUpdates.background.tint = savedDefaults.background.tint;
+        }
+        if (!foundry.utils.isEmpty(levelUpdates)) level.updateSource(levelUpdates);
       }
     }
     if (!foundry.utils.isEmpty(updates)) {
@@ -370,6 +384,31 @@ export class SceneActions {
     const filename = path?.split("/")?.pop() ?? "Untitled";
     const withoutExt = filename.replace(/\.[^.]+$/, "") || "Untitled";
     return withoutExt.replace(/[_-]/g, " ");
+  }
+
+  /**
+   * Build the background fields for scene creation. v14 moved background
+   * to the Level embedded document, so we must pass it inside a levels array.
+   * Properties listed in _LEVELS_PROPERTY_MAP are pruned by cleanData on v14,
+   * so they must be placed directly on the level.
+   * @param {string} src - The media path
+   * @param {object} [defaults={}] - Saved scene defaults to extract level props from
+   * @returns {object} Data to spread into the scene creation object
+   */
+  static #buildBackgroundData(src, defaults = {}) {
+    if ("levels" in Scene.schema.fields) {
+      const defaultId = Scene.metadata.defaultLevelId ?? "defaultLevel0000";
+      const level = {
+        _id: defaultId,
+        name: game.i18n?.localize("DOCUMENT.Level") ?? "Level",
+        background: {}
+      };
+      if (defaults.backgroundColor) level.background.color = defaults.backgroundColor;
+      if (defaults.background?.tint) level.background.tint = defaults.background.tint;
+      level.background.src = src;
+      return { levels: [level] };
+    }
+    return { background: { src } };
   }
 
   /**
