@@ -2,6 +2,9 @@
 
 A Foundry VTT v13 module for quickly creating scenes or showing handouts to players by right-clicking images and videos in the File Picker, Tile Browser, or Journals.
 
+[![Static Badge](https://img.shields.io/badge/Patreon-carolingian-white?style=for-the-badge&logo=patreon&labelColor=%23000000&color=%238000b3)](https://www.patreon.com/c/carolingiandev)
+[![alt-text](https://img.shields.io/badge/-Discord-%235662f6?style=for-the-badge)](https://discord.gg/cAuTaTYda3) 
+
 https://github.com/user-attachments/assets/6136b554-d2b0-4521-a27b-81ec5a76e771
 
 
